@@ -1,0 +1,196 @@
+--- 
+heat_template_version: 2013-05-23
+outputs: 
+  addresses: 
+    value: 
+      get_attr: 
+        - ui_server
+        - addresses
+
+parameters: 
+  flavor: 
+    default: m1.medium
+    type: string
+  image: 
+    default: rhel-tao-heat-config5
+    type: string
+  key_name: 
+    default: yangbo52
+    type: string
+  network_id_private: 
+    default: 9c743c4c-2106-403f-bd57-0cee90de32cc
+    type: string
+
+resources: 
+  bi_server: 
+    properties: 
+      flavor: 
+        get_param: flavor
+      image: 
+        get_param: image
+      key_name: 
+        get_param: key_name
+      networks: 
+        - 
+          port: 
+            get_resource: test_private_port
+      user_data_format: SOFTWARE_CONFIG
+    type: "OS::Nova::Server"
+  deployment_bi_master: 
+    properties: 
+      config: 
+        get_resource: sw_config
+      input_values: 
+        CHEF_ENV: smart_workforce
+        CHEF_METADATA: none
+        CHEF_RUN_LIST: "role[bi-master]"
+        CHEF_SERVER_IP: "9.186.106.39"
+        CHEF_VALID_PEM_URL: "http://9.186.106.39:8081/validation.pem"
+      server: 
+        get_resource: bi_server
+    type: "OS::Heat::SoftwareDeployment"
+  deployment_bi_slave: 
+    properties: 
+      config: 
+        get_resource: sw_config
+      input_values: 
+        CHEF_ENV: smart_workforce
+        CHEF_METADATA: none
+        CHEF_RUN_LIST: "role[bi-slave]"
+        CHEF_SERVER_IP: "9.186.106.39"
+        CHEF_VALID_PEM_URL: "http://9.186.106.39:8081/validation.pem"
+      server: 
+        get_resource: bi_server
+    type: "OS::Heat::SoftwareDeployment"
+  deployment_cognos: 
+    properties: 
+      config: 
+        get_resource: sw_config
+      input_values: 
+        CHEF_ENV: smart_workforce
+        CHEF_METADATA: none
+        CHEF_RUN_LIST: "role[cognos]"
+        CHEF_SERVER_IP: "9.186.106.39"
+        CHEF_VALID_PEM_URL: "http://9.186.106.39:8081/validation.pem"
+      server: 
+        get_resource: ui_server
+    type: "OS::Heat::SoftwareDeployment"
+  deployment_postgres: 
+    properties: 
+      config: 
+        get_resource: sw_config
+      input_values: 
+        CHEF_ENV: smart_workforce
+        CHEF_METADATA: none
+        CHEF_RUN_LIST: "role[postgresql]"
+        CHEF_SERVER_IP: "9.186.106.39"
+        CHEF_VALID_PEM_URL: "http://9.186.106.39:8081/validation.pem"
+      server: 
+        get_resource: ui_server
+    type: "OS::Heat::SoftwareDeployment"
+  deployment_spss_analytics: 
+    properties: 
+      config: 
+        get_resource: sw_config
+      input_values: 
+        CHEF_ENV: smart_workforce
+        CHEF_METADATA: none
+        CHEF_RUN_LIST: "role[spss_analytics]"
+        CHEF_SERVER_IP: "9.186.106.39"
+        CHEF_VALID_PEM_URL: "http://9.186.106.39:8081/validation.pem"
+      server: 
+        get_resource: spss_server
+    type: "OS::Heat::SoftwareDeployment"
+  deployment_spss_batch: 
+    properties: 
+      config: 
+        get_resource: sw_config
+      input_values: 
+        CHEF_ENV: smart_workforce
+        CHEF_METADATA: none
+        CHEF_RUN_LIST: "role[spss_batch]"
+        CHEF_SERVER_IP: "9.186.106.39"
+        CHEF_VALID_PEM_URL: "http://9.186.106.39:8081/validation.pem"
+      server: 
+        get_resource: spss_server
+    type: "OS::Heat::SoftwareDeployment"
+  deployment_spss_modeler: 
+    properties: 
+      config: 
+        get_resource: sw_config
+      input_values: 
+        CHEF_ENV: smart_workforce
+        CHEF_METADATA: none
+        CHEF_RUN_LIST: "role[spss_modeler]"
+        CHEF_SERVER_IP: "9.186.106.39"
+        CHEF_VALID_PEM_URL: "http://9.186.106.39:8081/validation.pem"
+      server: 
+        get_resource: spss_server
+    type: "OS::Heat::SoftwareDeployment"
+  deployment_tomcat: 
+    properties: 
+      config: 
+        get_resource: sw_config
+      input_values: 
+        CHEF_ENV: smart_workforce
+        CHEF_METADATA: none
+        CHEF_RUN_LIST: "role[tomcat-server]"
+        CHEF_SERVER_IP: "9.186.106.39"
+        CHEF_VALID_PEM_URL: "http://9.186.106.39:8081/validation.pem"
+      server: 
+        get_resource: ui_server
+    type: "OS::Heat::SoftwareDeployment"
+  spss_server: 
+    properties: 
+      flavor: 
+        get_param: flavor
+      image: 
+        get_param: image
+      key_name: 
+        get_param: key_name
+      networks: 
+        - 
+          port: 
+            get_resource: test_private_port
+      user_data_format: SOFTWARE_CONFIG
+    type: "OS::Nova::Server"
+  sw_config: 
+    properties: 
+      group: chef
+      inputs: 
+        - 
+          name: CHEF_SERVER_IP
+          type: String
+        - 
+          name: CHEF_VALID_PEM_URL
+          type: String
+        - 
+          name: CHEF_ENV
+          type: String
+        - 
+          name: CHEF_RUN_LIST
+          type: String
+        - 
+          name: CHEF_METADATA
+          type: String
+    type: "OS::Heat::SoftwareConfig"
+  test_private_port: 
+    properties: 
+      network_id: 
+        get_param: network_id_private
+    type: "OS::Neutron::Port"
+  ui_server: 
+    properties: 
+      flavor: 
+        get_param: flavor
+      image: 
+        get_param: image
+      key_name: 
+        get_param: key_name
+      networks: 
+        - 
+          port: 
+            get_resource: test_private_port
+      user_data_format: SOFTWARE_CONFIG
+    type: "OS::Nova::Server"
+

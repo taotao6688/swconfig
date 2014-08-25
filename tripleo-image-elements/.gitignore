@@ -1,0 +1,12 @@
+*~
+.testrepository
+*.sw?
+*.pyc
+.tox
+*.egg-info
+dist
+*.qcow2
+build
+AUTHORS
+ChangeLog
+elements/seed-stack-config/local.json

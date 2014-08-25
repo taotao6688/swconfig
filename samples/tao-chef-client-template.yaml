@@ -1,0 +1,65 @@
+heat_template_version: 2013-05-23
+parameters:
+  key_name:
+    type: string
+    default: yangbo52
+  flavor:
+    type: string
+    default: m1.medium
+  image:
+    type: string
+    default: rhel-tao-heat-config5
+  network_id_private:
+    type: string
+    default: 9c743c4c-2106-403f-bd57-0cee90de32cc
+
+resources:
+  config:
+    type: OS::Heat::SoftwareConfig
+    properties:
+    properties:
+      inputs:
+        - name: CHEF_SERVER_IP
+          type: String
+        - name: CHEF_VALID_PEM_URL
+          type: String
+        - name: CHEF_ENV
+          type: String
+        - name: CHEF_RUN_LIST
+          type: String
+        - name: CHEF_METADATA
+          type: String
+      group: chef
+
+  deployment:
+    type: OS::Heat::SoftwareDeployment
+    properties:
+      input_values:
+        CHEF_SERVER_IP: '9.186.106.39'
+        CHEF_VALID_PEM_URL: 'http://9.186.106.39:8081/validation.pem'
+        CHEF_ENV: 'smart_workforce'
+        CHEF_RUN_LIST: 'role[apache2]'
+        CHEF_METADATA: 'none'
+      config:
+        get_resource: config
+      server:
+        get_resource: server
+
+  server:
+    type: OS::Nova::Server
+    properties:
+      image: {get_param: image}
+      flavor: {get_param: flavor}
+      key_name: {get_param: key_name}
+      networks:
+      - port: { get_resource: test_private_port }
+      user_data_format: SOFTWARE_CONFIG
+  test_private_port:
+    type: OS::Neutron::Port
+    properties:
+      network_id: { get_param: network_id_private }
+
+outputs:
+  addresses:
+    value:
+      get_attr: [server, addresses]
