@@ -1,0 +1,101 @@
+heat_template_version: 2013-05-23
+
+description: >
+  A template to create a Softlayer Virtual Machine.
+
+parameters:
+  host_name_1:
+    type: string
+    description: Hostname of Softlayer Virtual Machine.
+    default: tao-test1
+  domain:
+    type: string
+    description: Domain name of VM.
+    default: heaton.softlayer.com
+  cpu_number:
+    type: number
+    description: CPU number of VM.
+    default: 1
+  memory:
+    type: number
+    description: Memory capacity of VM.
+    default: 1024
+  hourly:
+    type: string
+    description: Whether VM is charged hourly.
+    default: True
+  datacenter:
+    type: string
+    description: Short name of datacenter where VM is located.
+    default: 'sjc01'
+  os_code:
+    type: string
+    description: OS VM using.
+    default: 'REDHAT_6_64'
+  image:
+    type: string
+    description: The name of image used to create VM.
+    default: 'rhel-softcfg-chef'
+  image_id:
+    type: string
+    description: The ID of image used to create VM.
+    default: 'a6d0c3cb-9e3a-459a-8789-76e568cd2a2a'
+  public_vlan:
+    type: string
+    description: The name of public vlan used to create VM.
+    default: 'ASC-public'
+  private_vlan:
+    type: string
+    description: The name of private vlan used to create VM.
+    default: 'ASC-private'
+  ssh_keys:
+    type: string
+    description: The list of SSH keys used to inject into VM when boot it up.
+    default: ['heaton', 'openstack-softlayer', 'os-sl-hk']
+  sl_user:
+    type: string
+    description: User name of Softlayer account.
+    default: 'shutao1'
+  sl_apikey:
+    type: string
+    description: API key of Softlayer account.
+    default: '3f3faab8d8f738ac6f8c232de59d3c11d5383a4d4462f369e11422079e889d46'
+
+resources:
+  vm_sl1:
+    type: SL::Compute::VM
+    properties:
+      host_name: { get_param: host_name_1 }
+      domain: { get_param: domain }
+      cpus: { get_param: cpu_number }
+      memory: { get_param: memory }
+      hourly: { get_param: hourly }
+      datacenter: { get_param: datacenter }
+      image_id: { get_param: image_id }
+      disk_type: 'SAN'
+      public_vlan: { get_param: public_vlan }
+      private_vlan: { get_param: private_vlan }
+      ssh_keys: { get_param: ssh_keys }
+      sl_user: {get_param: sl_user}
+      sl_apikey: {get_param: sl_apikey}
+      user_data:
+        str_replace:
+          template: |
+            #!/bin/bash
+            echo 'hello, $vm_name.$domain!' >> /root/$vm_name.tmp
+          params:
+            $vm_name: { get_param: host_name_1 }
+            $domain: {get_param: domain}
+      user_data_format: 'SOFTWARE_CONFIG'
+
+outputs:
+  Access:
+    description: access to vm
+    value:
+      str_replace:
+        template: $public_ip,$private_ip,$password,$uuid
+        params:
+          $public_ip: { get_attr: [vm_sl1, PublicIp] }
+          $private_ip: { get_attr: [vm_sl1, PrivateIp] }
+          $password: { get_attr: [vm_sl1, passwords] }
+          $uuid: { get_attr: [vm_sl1, uuid] }

@@ -1,0 +1,200 @@
+heat_template_version: 2013-05-23
+
+description: >
+  A template to create a Softlayer Virtual Machine.
+
+parameters:
+  host_name_1:
+    type: string
+    description: Hostname of Softlayer Virtual Machine.
+    default: sl-server-01
+  host_name_2:
+    type: string
+    description: Hostname of Softlayer Virtual Machine.
+    default: sl-server-02
+  domain:
+    type: string
+    description: Domain name of VM.
+    default: heaton.softlayer.com
+  cpu_number:
+    type: number
+    description: CPU number of VM.
+    default: 1
+  memory:
+    type: number
+    description: Memory capacity of VM.
+    default: 1024
+  hourly:
+    type: string
+    description: Whether VM is charged hourly.
+    default: True
+  datacenter:
+    type: string
+    description: Short name of datacenter where VM is located.
+    default: 'sjc01'
+  os_code:
+    type: string
+    description: OS VM using.
+    default: 'REDHAT_6_64'
+  image:
+    type: string
+    description: The name of image used to create VM.
+    default: '25G RedHat 6 64-bit'
+  image_id:
+    type: string
+    description: The ID of image used to create VM.
+    default: '6d606229-02fa-4923-99e0-ac4eaafe3192'
+  public_vlan:
+    type: string
+    description: The name of public vlan used to create VM.
+    default: 'ASC-public'
+  private_vlan:
+    type: string
+    description: The name of private vlan used to create VM.
+    default: 'ASC-private'
+  ssh_keys:
+    type: string
+    description: The list of SSH keys used to inject into VM when boot it up.
+    default: ['heaton', 'openstack-softlayer', 'os-sl-hk']
+  sl_user:
+    type: string
+    description: User name of Softlayer account.
+    default: 'shutao1'
+  sl_apikey:
+    type: string
+    description: API key of Softlayer account.
+    default: '3f3faab8d8f738ac6f8c232de59d3c11d5383a4d4462f369e11422079e889d46'
+
+resources:
+  vm_sl1:
+    type: SL::Compute::VM
+    properties:
+      host_name: { get_param: host_name_1 }
+      domain: { get_param: domain }
+      cpus: { get_param: cpu_number }
+      memory: { get_param: memory }
+      hourly: { get_param: hourly }
+      datacenter: { get_param: datacenter }
+      image_id: { get_param: image_id }
+      disk_type: 'SAN'
+      public_vlan: { get_param: public_vlan }
+      private_vlan: { get_param: private_vlan }
+      ssh_keys: { get_param: ssh_keys }
+      sl_user: {get_param: sl_user}
+      sl_apikey: {get_param: sl_apikey}
+      user_data:
+        str_replace:
+          template: |
+            #!/bin/bash
+            echo 'hello, $vm_name.$domain!' >> /root/$vm_name.tmp
+          params:
+            $vm_name: { get_param: host_name_1 }
+            $domain: {get_param: domain}
+      user_data_format: 'SOFTWARE_CONFIG'
+
+  vm_sl2:
+    type: SL::Compute::VM
+    properties:
+      host_name: { get_param: host_name_2 }
+      domain: { get_param: domain }
+      cpus: { get_param: cpu_number }
+      memory: { get_param: memory }
+      hourly: { get_param: hourly }
+      datacenter: { get_param: datacenter }
+      image_id: { get_param: image_id }
+      disk_type: 'SAN'
+      public_vlan: { get_param: public_vlan }
+      private_vlan: { get_param: private_vlan }
+      ssh_keys: { get_param: ssh_keys }
+      sl_user: {get_param: sl_user}
+      sl_apikey: {get_param: sl_apikey}
+      user_data:
+        str_replace:
+          template: |
+            #!/bin/bash
+            echo 'hello, $vm_name.$domain!' >> /root/$vm_name.tmp
+          params:
+            $vm_name: { get_param: host_name_2 }
+            $domain: {get_param: domain}
+      user_data_format: 'SOFTWARE_CONFIG'
+
+  server_softconfig:
+    type: OS::Heat::SoftwareConfig
+    properties:
+      inputs:
+        - name: PKGNAME 
+          type: String
+        - name: DIRNAME
+          type: String
+        - name: PREVIOUS
+          type: String
+      outputs:
+        - name: result
+      config: |
+        #!/bin/bash
+        mkdir /tmp/$DIRNAME
+        touch /tmp/$DIRNAME/SL-softcfg-test
+        cat > /tmp/$DIRNAME/SL-softcfg-test <<EOF
+        [this is $DIRNAME]
+        Previous is $PREVIOUS
+        EOF
+        yum install -y $PKGNAME
+        echo "$DIRNAME" > $heat_outputs_path.result
+        exit 0
+      group: script
+
+  server_softdeploy1:
+    type: OS::Heat::SoftwareDeployment
+    properties:
+      input_values:
+        DIRNAME: 'server_softdeploy1'
+        PKGNAME: 'tigervnc'
+        PREVIOUS: 'none'
+      signal_transport: HEAT_SIGNAL
+      config: {get_resource: server_softconfig}
+      server: {get_resource: vm_sl1}
+
+  server_softdeploy2:
+    type: OS::Heat::SoftwareDeployment
+    depends_on: server_softdeploy1
+    properties:
+      input_values:
+        DIRNAME: 'server_softdeploy2'
+        PKGNAME: 'tigervnc'
+        PREVIOUS: { get_attr: [server_softdeploy1, result] }
+      signal_transport: HEAT_SIGNAL
+      config: {get_resource: server_softconfig}
+      server: {get_resource: vm_sl2}
+
+  server_softdeploy3:
+    type: OS::Heat::SoftwareDeployment
+    depends_on: server_softdeploy2
+    properties:
+      input_values:
+        DIRNAME: 'server_softdeploy3'
+        PKGNAME: 'svncpp'
+        PREVIOUS: { get_attr: [server_softdeploy2, result] }
+      signal_transport: HEAT_SIGNAL
+      config: {get_resource: server_softconfig}
+      server: {get_resource: vm_sl1}
+
+outputs:
+  Access:
+    description: access to vm
+    value:
+      str_replace:
+        template: $public_ip,$private_ip,$password,$uuid
+        params:
+          $public_ip: { get_attr: [vm_sl1, PublicIp] }
+          $private_ip: { get_attr: [vm_sl1, PrivateIp] }
+          $password: { get_attr: [vm_sl1, passwords] }
+          $uuid: { get_attr: [vm_sl1, uuid] }
+  user_id:
+    description: Default user ID.
+    value: "cognos"
+  deployment1_stdout:
+    value: { get_attr: [server_softdeploy1, result] }
+  deployment2_stdout:
+    value: { get_attr: [server_softdeploy2, result] }
+  deployment3_stdout:
+    value: { get_attr: [server_softdeploy3, result] }
